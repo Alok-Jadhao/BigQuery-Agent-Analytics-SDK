@@ -4,6 +4,8 @@ import {
   buildDashboardUrl,
   buildSetupUrl,
   validateConfiguration,
+  splitQualifiedTableId,
+  parseQualifiedTableIdForInput,
 } from "../docs/configurator.mjs";
 import { REPORT_CONFIG } from "../docs/report-config.mjs";
 
@@ -39,6 +41,62 @@ const hyphenatedTable = {
   table: "events_agent_cur-phenix",
 };
 assert.deepEqual(validateConfiguration(hyphenatedTable), hyphenatedTable);
+
+const qualifiedTableId = {
+  project: "my-project",
+  dataset: "my_dataset",
+  table: "my_table",
+};
+
+assert.deepEqual(
+  splitQualifiedTableId("my-project.my_dataset.my_table"),
+  qualifiedTableId,
+);
+
+assert.deepEqual(
+  splitQualifiedTableId("`my-project.my_dataset.my_table`"),
+  qualifiedTableId,
+);
+
+assert.deepEqual(
+  splitQualifiedTableId("my-project:my_dataset.my_table"),
+  qualifiedTableId,
+);
+
+assert.deepEqual(
+  splitQualifiedTableId("my-project.my_dataset.my_table;"),
+  qualifiedTableId,
+);
+
+assert.deepEqual(
+  splitQualifiedTableId("my-project.my_dataset.my_table,"),
+  qualifiedTableId,
+);
+
+assert.equal(
+  splitQualifiedTableId("a.b.c.d"),
+  null,
+);
+
+assert.equal(
+  splitQualifiedTableId("my-project.my_dataset."),
+  null,
+);
+
+assert.equal(
+  parseQualifiedTableIdForInput("BADPROJECT.dataset.table"),
+  null,
+);
+
+assert.equal(
+  parseQualifiedTableIdForInput("my-project.my_dataset.table$20260807"),
+  null,
+);
+
+assert.equal(
+  parseQualifiedTableIdForInput("my-project.my_dataset.table@1234"),
+  null,
+);
 
 const dashboard = new URL(buildDashboardUrl(values));
 assert.equal(dashboard.origin, "https://lookerstudio.google.com");
@@ -216,12 +274,6 @@ Object.defineProperty(globalThis, "navigator", {
 
 await import("../docs/app.mjs");
 
-const qualifiedTableId = {
-  project: "my-project",
-  dataset: "my_dataset",
-  table: "my_table",
-};
-
 function resetTableInputs() {
   fakeElements.get("#project").value = values.project;
   fakeElements.get("#dataset").value = values.dataset;
@@ -292,11 +344,43 @@ assert.equal(
 );
 
 resetTableInputs();
-assert.equal(pasteIntoProject("BADPROJECT.dataset.table"), true);
+
+assert.equal(
+  pasteIntoProject("BADPROJECT.dataset.table"),
+  true,
+  "a qualified identifier with an invalid project is still distributed",
+);
+
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  {
+    project: "BADPROJECT",
+    dataset: "dataset",
+    table: "table",
+  },
+  "the qualified identifier is distributed before validation",
+);
+
 assert.match(
   fakeElements.get("#project-error").textContent,
-  /6-30 lowercase letters, digits, or hyphens/,
-  "a split ID validates an invalid project component inline",
+  /Use 6–30 lowercase letters, digits, or hyphens; start with a letter and end with a letter or digit/,
+  "the invalid project component is reported inline",
+);
+
+assert.equal(
+  fakeElements.get("#form-status").textContent,
+  "",
+  "an invalid split does not replace the inline field error with a success status",
+);
+
+assert.equal(
+  fakeElements.get("#form-status").dataset.kind,
+  "",
+  "an invalid split does not leave the form in a ready state",
 );
 
 resetTableInputs();
@@ -340,6 +424,123 @@ assert.equal(
   fakeElements.get("#form-status").textContent,
   "",
   "field validation must not repeat the inline error in the form status",
+);
+
+resetTableInputs();
+
+assert.equal(
+  pasteIntoProject("a.b.c.d"),
+  false,
+  "extra-dot identifiers should not be parsed",
+);
+
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  {
+    project: values.project,
+    dataset: values.dataset,
+    table: values.table,
+  },
+);
+
+fakeElements.get("#project").value = "a.b.c.d";
+fakeElements.get("#project").listeners.input({
+  target: fakeElements.get("#project"),
+});
+
+assert.match(
+  fakeElements.get("#project-error").textContent,
+  /6–30 lowercase letters/,
+);
+
+resetTableInputs();
+
+assert.equal(
+  pasteIntoProject("my-project.my_dataset.table$20260807"),
+  true,
+);
+
+assert.equal(
+  fakeElements.get("#project").value,
+  "my-project",
+);
+
+assert.equal(
+  fakeElements.get("#dataset").value,
+  "my_dataset",
+);
+
+assert.equal(
+  fakeElements.get("#table").value,
+  "table$20260807",
+);
+
+assert.match(
+  fakeElements.get("#table-error").textContent,
+  /letters, digits/,
+);
+
+assert.equal(
+  fakeElements.get("#form-status").textContent,
+  "",
+  "invalid table should keep the form status empty",
+);
+
+resetTableInputs();
+
+assert.equal(
+  pasteIntoProject("my-project.my_dataset.table@1234"),
+  true,
+);
+
+assert.equal(
+  fakeElements.get("#table").value,
+  "table@1234",
+);
+
+assert.match(
+  fakeElements.get("#table-error").textContent,
+  /letters, digits/,
+);
+
+assert.equal(
+  fakeElements.get("#form-status").textContent,
+  "",
+);
+
+resetTableInputs();
+
+assert.equal(
+  pasteIntoProject("my-project.my_dataset."),
+  false,
+  "identifiers with an empty part should not be parsed",
+);
+
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  {
+    project: values.project,
+    dataset: values.dataset,
+    table: values.table,
+  },
+);
+
+fakeElements.get("#project").value = "my-project.my_dataset.";
+fakeElements.get("#project").listeners.input({
+  target: fakeElements.get("#project"),
+});
+
+assert.match(
+  fakeElements.get("#project-error").textContent,
+  /6–30 lowercase letters/,
 );
 
 console.log(

@@ -1,7 +1,10 @@
+import { parse } from "node:path";
 import {
   buildDashboardUrl,
   buildSetupUrl,
   validateConfiguration,
+  splitQualifiedTableId,
+  parseQualifiedTableIdForInput,
 } from "./configurator.mjs";
 import { REPORT_CONFIG } from "./report-config.mjs";
 
@@ -73,28 +76,7 @@ function refresh() {
   }
 }
 
-function splitQualifiedTableId(value) {
-  const normalized = String(value ?? "")
-  .trim()
-  .replace(/`/g, "")
-  .replace(/:/, ".")
-  .replace(/[;,]$/, "");
-
-  const parts = normalized.split(".");
-  if (parts.length !== 3) {
-    return null;
-  }
-
-  const [project, dataset, table] = parts;
-  return { project, dataset, table };
-}
-
-function handleQualifiedTableId(value) {
-  const parsed = splitQualifiedTableId(value);
-  if (!parsed) {
-    return null;
-  }
-
+function handleQualifiedTableId(parsed) {
   inputs.project.value = parsed.project;
   inputs.dataset.value = parsed.dataset;
   inputs.table.value = parsed.table;
@@ -103,11 +85,14 @@ function handleQualifiedTableId(value) {
 }
 
 function afterQualifiedTableId(parsed) {
-    refresh();
+  refresh();
+  
+  if (createLink.href) {
     setStatus(
-        `Split "${parsed.project}.${parsed.dataset}.${parsed.table}" into the three fields.`,
-        "ready",
+      `Split "${parsed.project}.${parsed.dataset}.${parsed.table}" into the three fields.`,
+      "ready",
     );
+  }
 }
 
 const query = new URLSearchParams(window.location.search);
@@ -121,9 +106,10 @@ if (!inputs.table.value) {
 }
 for (const input of tableInputs) {
   input.addEventListener("input", (event) => {
-    const parsed = handleQualifiedTableId(event.target.value);
+    const parsed = parseQualifiedTableIdForInput(event.target.value);
 
     if (parsed) {
+      handleQualifiedTableId(parsed);
       afterQualifiedTableId(parsed);
     } else {
       refresh();
@@ -134,14 +120,17 @@ for (const input of tableInputs) {
 for (const input of tableInputs) {
   input.addEventListener("paste", (event) => {
     const text = event.clipboardData.getData("text");
+    const parsed = splitQualifiedTableId(text);
 
-    const parsed = handleQualifiedTableId(text);
     if (parsed) {
       event.preventDefault();
+      handleQualifiedTableId(parsed);
       afterQualifiedTableId(parsed);
     }
-  })
+  });
 }
+
+inputs.billingProject.addEventListener("input", refresh);
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();

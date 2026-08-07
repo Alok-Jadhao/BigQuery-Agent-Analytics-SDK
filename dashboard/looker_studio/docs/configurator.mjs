@@ -105,3 +105,37 @@ export function buildSetupUrl(input, pageUrl) {
   url.hash = "";
   return url.toString();
 }
+
+export function splitQualifiedTableId(value) {
+  const normalized = String(value ?? "")
+  .trim()
+  .replace(/`/g, "")
+  .replace(/^([^.:]+):/, "$1.")
+  .replace(/[;,]+$/, "");
+
+  const parts = normalized.split(".");
+  if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
+    return null;
+  }
+
+  const [project, dataset, table] = parts;
+  return { project, dataset, table };
+}
+
+export function parseQualifiedTableIdForInput(value) {
+  const parsed = splitQualifiedTableId(value);
+
+  if (!parsed) {
+    return null;
+  }
+
+  if (
+    !PROJECT_RE.test(parsed.project) ||
+    !DATASET_RE.test(parsed.dataset) ||
+    !TABLE_RE.test(parsed.table)
+  ) {
+    return null;
+  }
+
+  return parsed;
+}
