@@ -215,8 +215,123 @@ Object.defineProperty(globalThis, "navigator", {
 });
 
 await import("../docs/app.mjs");
+
+const qualifiedTableId = {
+  project: "my-project",
+  dataset: "my_dataset",
+  table: "my_table",
+};
+
+function resetTableInputs() {
+  fakeElements.get("#project").value = values.project;
+  fakeElements.get("#dataset").value = values.dataset;
+  fakeElements.get("#table").value = values.table;
+
+  fakeElements.get("#form-status").textContent = "";
+  fakeElements.get("#form-status").dataset.kind = "";
+
+  fakeElements.get("#project-error").textContent = "";
+  fakeElements.get("#dataset-error").textContent = "";
+  fakeElements.get("#table-error").textContent = "";
+}
+
+function pasteIntoProject(text) {
+  let prevented = false;
+  fakeElements.get("#project").listeners.paste({
+    clipboardData: { getData: () => text },
+    preventDefault() {
+      prevented = true;
+    },
+  });
+  return prevented;
+}
+
+for (const [description, pastedId] of [
+  ["normal dotted ID", "my-project.my_dataset.my_table"],
+  ["backticked ID", "`my-project.my_dataset.my_table`"],
+  ["legacy colon ID", "my-project:my_dataset.my_table"],
+  ["semicolon-terminated ID", "my-project.my_dataset.my_table;"],
+  ["comma-terminated ID", "my-project.my_dataset.my_table,"],
+]) {
+  resetTableInputs();
+  assert.equal(pasteIntoProject(pastedId), true, `${description} is handled`);
+  assert.deepEqual(
+    {
+      project: fakeElements.get("#project").value,
+      dataset: fakeElements.get("#dataset").value,
+      table: fakeElements.get("#table").value,
+    },
+    qualifiedTableId,
+    `${description} fills all identifier fields`,
+  );
+  assert.equal(
+    fakeElements.get("#form-status").textContent,
+    'Split "my-project.my_dataset.my_table" into the three fields.',
+    `${description} reports the split`,
+  );
+  assert.equal(fakeElements.get("#form-status").dataset.kind, "ready");
+}
+
+resetTableInputs();
+fakeElements.get("#dataset").value = "my-project.my_dataset.my_table";
+fakeElements.get("#dataset").listeners.input({
+  target: fakeElements.get("#dataset"),
+});
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  qualifiedTableId,
+  "the input fallback also splits a qualified ID",
+);
+assert.equal(
+  fakeElements.get("#form-status").textContent,
+  'Split "my-project.my_dataset.my_table" into the three fields.',
+);
+
+resetTableInputs();
+assert.equal(pasteIntoProject("BADPROJECT.dataset.table"), true);
+assert.match(
+  fakeElements.get("#project-error").textContent,
+  /6-30 lowercase letters, digits, or hyphens/,
+  "a split ID validates an invalid project component inline",
+);
+
+resetTableInputs();
+assert.equal(
+  pasteIntoProject("customers"),
+  false,
+  "an unqualified ID retains normal paste behavior",
+);
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  {
+    project: values.project,
+    dataset: values.dataset,
+    table: values.table,
+  },
+  "an unqualified paste does not distribute values to the other fields",
+);
+
+// Simulate the browser applying the unhandled paste and dispatching its input event.
+fakeElements.get("#project").value = "customers";
+fakeElements.get("#project").listeners.input({
+  target: fakeElements.get("#project"),
+});
+assert.equal(fakeElements.get("#project").value, "customers");
+assert.equal(fakeElements.get("#dataset").value, values.dataset);
+assert.equal(fakeElements.get("#table").value, values.table);
+
 fakeElements.get("#table").value = "table,other";
-fakeElements.get("#table").listeners.input();
+fakeElements.get("#table").listeners.input({
+  target: fakeElements.get("#table"),
+});
 assert.match(
   fakeElements.get("#table-error").textContent,
   /letters, digits/,

@@ -17,6 +17,11 @@ const inputs = {
   table: document.querySelector("#table"),
   billingProject: document.querySelector("#billing-project"),
 };
+const tableInputs = [
+  inputs.project,
+  inputs.dataset,
+  inputs.table,
+];
 const errors = {
   project: document.querySelector("#project-error"),
   dataset: document.querySelector("#dataset-error"),
@@ -68,6 +73,43 @@ function refresh() {
   }
 }
 
+function splitQualifiedTableId(value) {
+  const normalized = String(value ?? "")
+  .trim()
+  .replace(/`/g, "")
+  .replace(/:/, ".")
+  .replace(/[;,]$/, "");
+
+  const parts = normalized.split(".");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [project, dataset, table] = parts;
+  return { project, dataset, table };
+}
+
+function handleQualifiedTableId(value) {
+  const parsed = splitQualifiedTableId(value);
+  if (!parsed) {
+    return null;
+  }
+
+  inputs.project.value = parsed.project;
+  inputs.dataset.value = parsed.dataset;
+  inputs.table.value = parsed.table;
+
+  return parsed;
+}
+
+function afterQualifiedTableId(parsed) {
+    refresh();
+    setStatus(
+        `Split "${parsed.project}.${parsed.dataset}.${parsed.table}" into the three fields.`,
+        "ready",
+    );
+}
+
 const query = new URLSearchParams(window.location.search);
 for (const [name, input] of Object.entries(inputs)) {
   if (query.has(name)) {
@@ -77,8 +119,28 @@ for (const [name, input] of Object.entries(inputs)) {
 if (!inputs.table.value) {
   inputs.table.value = REPORT_CONFIG.defaultTable;
 }
-for (const input of Object.values(inputs)) {
-  input.addEventListener("input", refresh);
+for (const input of tableInputs) {
+  input.addEventListener("input", (event) => {
+    const parsed = handleQualifiedTableId(event.target.value);
+
+    if (parsed) {
+      afterQualifiedTableId(parsed);
+    } else {
+      refresh();
+    }
+  });
+}
+
+for (const input of tableInputs) {
+  input.addEventListener("paste", (event) => {
+    const text = event.clipboardData.getData("text");
+
+    const parsed = handleQualifiedTableId(text);
+    if (parsed) {
+      event.preventDefault();
+      afterQualifiedTableId(parsed);
+    }
+  })
 }
 
 form.addEventListener("submit", (event) => {
