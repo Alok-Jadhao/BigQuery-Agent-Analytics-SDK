@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   buildDashboardUrl,
   buildSetupUrl,
@@ -13,6 +13,28 @@ const pageSource = readFileSync(
   new URL("../docs/index.html", import.meta.url),
   "utf8",
 );
+
+const docsDir = new URL("../docs/", import.meta.url);
+
+for (const file of readdirSync(docsDir)) {
+  if (!file.endsWith(".mjs")) {
+    continue;
+  }
+
+  const source = readFileSync(
+    new URL(file, docsDir),
+    "utf8",
+  );
+
+  for (const match of source.matchAll(/from\s+["']([^"']+)["']/g)) {
+    assert.match(
+      match[1],
+      /^\.\//,
+      `${file} imports "${match[1]}", expected a browser-safe relative import.`,
+    );
+  }
+}
+
 assert.doesNotMatch(pageSource, /github\.com\/caohy1988/);
 assert.match(
   pageSource,

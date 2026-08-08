@@ -1,4 +1,3 @@
-import { parse } from "node:path";
 import {
   buildDashboardUrl,
   buildSetupUrl,
@@ -80,13 +79,11 @@ function handleQualifiedTableId(parsed) {
   inputs.project.value = parsed.project;
   inputs.dataset.value = parsed.dataset;
   inputs.table.value = parsed.table;
-
-  return parsed;
 }
 
 function afterQualifiedTableId(parsed) {
+  handleQualifiedTableId(parsed);
   refresh();
-  
   if (createLink.href) {
     setStatus(
       `Split "${parsed.project}.${parsed.dataset}.${parsed.table}" into the three fields.`,
@@ -109,7 +106,6 @@ for (const input of tableInputs) {
     const parsed = parseQualifiedTableIdForInput(event.target.value);
 
     if (parsed) {
-      handleQualifiedTableId(parsed);
       afterQualifiedTableId(parsed);
     } else {
       refresh();
@@ -124,7 +120,6 @@ for (const input of tableInputs) {
 
     if (parsed) {
       event.preventDefault();
-      handleQualifiedTableId(parsed);
       afterQualifiedTableId(parsed);
     }
   });
