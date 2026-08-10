@@ -102,7 +102,8 @@ if (!inputs.table.value) {
   inputs.table.value = REPORT_CONFIG.defaultTable;
 }
 for (const input of tableInputs) {
-  input.addEventListener("input", (event) => {
+  input.addEventListener("input", refresh);
+  input.addEventListener("change", (event) => {
     const parsed = parseQualifiedTableIdForInput(event.target.value);
 
     if (parsed) {

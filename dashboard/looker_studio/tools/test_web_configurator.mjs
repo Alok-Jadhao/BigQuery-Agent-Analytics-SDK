@@ -309,9 +309,9 @@ function resetTableInputs() {
   fakeElements.get("#table-error").textContent = "";
 }
 
-function pasteIntoProject(text) {
+function pasteIntoProject(name, text) {
   let prevented = false;
-  fakeElements.get("#project").listeners.paste({
+  fakeElements.get(`#${name}`).listeners.paste({
     clipboardData: { getData: () => text },
     preventDefault() {
       prevented = true;
@@ -328,7 +328,7 @@ for (const [description, pastedId] of [
   ["comma-terminated ID", "my-project.my_dataset.my_table,"],
 ]) {
   resetTableInputs();
-  assert.equal(pasteIntoProject(pastedId), true, `${description} is handled`);
+  assert.equal(pasteIntoProject("project", pastedId), true, `${description} is handled`);
   assert.deepEqual(
     {
       project: fakeElements.get("#project").value,
@@ -348,7 +348,7 @@ for (const [description, pastedId] of [
 
 resetTableInputs();
 fakeElements.get("#dataset").value = "my-project.my_dataset.my_table";
-fakeElements.get("#dataset").listeners.input({
+fakeElements.get("#dataset").listeners.change({
   target: fakeElements.get("#dataset"),
 });
 assert.deepEqual(
@@ -358,7 +358,7 @@ assert.deepEqual(
     table: fakeElements.get("#table").value,
   },
   qualifiedTableId,
-  "the input fallback also splits a qualified ID",
+  "the change fallback also splits a qualified ID",
 );
 assert.equal(
   fakeElements.get("#form-status").textContent,
@@ -368,7 +368,7 @@ assert.equal(
 resetTableInputs();
 
 assert.equal(
-  pasteIntoProject("BADPROJECT.dataset.table"),
+  pasteIntoProject("project", "BADPROJECT.dataset.table"),
   true,
   "a qualified identifier with an invalid project is still distributed",
 );
@@ -407,7 +407,7 @@ assert.equal(
 
 resetTableInputs();
 assert.equal(
-  pasteIntoProject("customers"),
+  pasteIntoProject("project", "customers"),
   false,
   "an unqualified ID retains normal paste behavior",
 );
@@ -451,7 +451,7 @@ assert.equal(
 resetTableInputs();
 
 assert.equal(
-  pasteIntoProject("a.b.c.d"),
+  pasteIntoProject("project", "a.b.c.d"),
   false,
   "extra-dot identifiers should not be parsed",
 );
@@ -482,7 +482,7 @@ assert.match(
 resetTableInputs();
 
 assert.equal(
-  pasteIntoProject("my-project.my_dataset.table$20260807"),
+  pasteIntoProject("project", "my-project.my_dataset.table$20260807"),
   true,
 );
 
@@ -515,7 +515,7 @@ assert.equal(
 resetTableInputs();
 
 assert.equal(
-  pasteIntoProject("my-project.my_dataset.table@1234"),
+  pasteIntoProject("project", "my-project.my_dataset.table@1234"),
   true,
 );
 
@@ -537,7 +537,7 @@ assert.equal(
 resetTableInputs();
 
 assert.equal(
-  pasteIntoProject("my-project.my_dataset."),
+  pasteIntoProject("project", "my-project.my_dataset."),
   false,
   "identifiers with an empty part should not be parsed",
 );
@@ -564,6 +564,72 @@ assert.match(
   fakeElements.get("#project-error").textContent,
   /6–30 lowercase letters/,
 );
+
+resetTableInputs();
+
+const typedQualifiedId = "my-project.my_dataset.my_table";
+
+for (let i = 1; i <= typedQualifiedId.length; i += 1) {
+  const prefix = typedQualifiedId.slice(0, i);
+
+  fakeElements.get("#project").value = prefix;
+  fakeElements.get("#project").listeners.input({
+    target: fakeElements.get("#project"),
+  });
+
+  assert.equal(
+    fakeElements.get("#project").value,
+    prefix,
+    `typing "${prefix}" must not distribute the qualified ID`,
+  );
+  assert.equal(
+    fakeElements.get("#dataset").value,
+    values.dataset,
+    `typing "${prefix}" must not change the dataset`,
+  );
+  assert.equal(
+    fakeElements.get("#table").value,
+    values.table,
+    `typing "${prefix}" must not change the table`,
+  );
+}
+
+fakeElements.get("#project").listeners.change({
+  target: fakeElements.get("#project"),
+});
+
+assert.deepEqual(
+  {
+    project: fakeElements.get("#project").value,
+    dataset: fakeElements.get("#dataset").value,
+    table: fakeElements.get("#table").value,
+  },
+  qualifiedTableId,
+  "a committed qualified ID is distributed on change",
+);
+
+for (const field of ["project", "dataset", "table"]) {
+  resetTableInputs();
+
+  assert.equal(
+    pasteIntoProject(
+      field,
+      "my-project.my_dataset.my_table",
+    ),
+    true,
+    `qualified ID pasted into ${field} is handled`,
+  );
+
+  assert.deepEqual(
+    {
+      project: fakeElements.get("#project").value,
+      dataset: fakeElements.get("#dataset").value,
+      table: fakeElements.get("#table").value,
+    },
+    qualifiedTableId,
+    `qualified ID pasted into ${field} fills all identifier fields`,
+  );
+}
 
 console.log(
   "web configurator OK: identifiers and sentinels validated; Linking API URL deterministic",
