@@ -2,6 +2,8 @@ import {
   buildDashboardUrl,
   buildSetupUrl,
   validateConfiguration,
+  splitQualifiedTableId,
+  parseQualifiedTableIdForInput,
 } from "./configurator.mjs";
 import { REPORT_CONFIG } from "./report-config.mjs";
 
@@ -17,6 +19,11 @@ const inputs = {
   table: document.querySelector("#table"),
   billingProject: document.querySelector("#billing-project"),
 };
+const tableInputs = [
+  inputs.project,
+  inputs.dataset,
+  inputs.table,
+];
 const errors = {
   project: document.querySelector("#project-error"),
   dataset: document.querySelector("#dataset-error"),
@@ -68,6 +75,23 @@ function refresh() {
   }
 }
 
+function handleQualifiedTableId(parsed) {
+  inputs.project.value = parsed.project;
+  inputs.dataset.value = parsed.dataset;
+  inputs.table.value = parsed.table;
+}
+
+function afterQualifiedTableId(parsed) {
+  handleQualifiedTableId(parsed);
+  refresh();
+  if (createLink.href) {
+    setStatus(
+      `Split "${parsed.project}.${parsed.dataset}.${parsed.table}" into the three fields.`,
+      "ready",
+    );
+  }
+}
+
 const query = new URLSearchParams(window.location.search);
 for (const [name, input] of Object.entries(inputs)) {
   if (query.has(name)) {
@@ -77,9 +101,32 @@ for (const [name, input] of Object.entries(inputs)) {
 if (!inputs.table.value) {
   inputs.table.value = REPORT_CONFIG.defaultTable;
 }
-for (const input of Object.values(inputs)) {
+for (const input of tableInputs) {
   input.addEventListener("input", refresh);
+  input.addEventListener("change", (event) => {
+    const parsed = parseQualifiedTableIdForInput(event.target.value);
+
+    if (parsed) {
+      afterQualifiedTableId(parsed);
+    } else {
+      refresh();
+    }
+  });
 }
+
+for (const input of tableInputs) {
+  input.addEventListener("paste", (event) => {
+    const text = event.clipboardData.getData("text");
+    const parsed = splitQualifiedTableId(text);
+
+    if (parsed) {
+      event.preventDefault();
+      afterQualifiedTableId(parsed);
+    }
+  });
+}
+
+inputs.billingProject.addEventListener("input", refresh);
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
