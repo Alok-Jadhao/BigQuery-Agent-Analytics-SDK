@@ -91,8 +91,9 @@ fixture parity certification or M4 visual sign-off.
 Canonical published template:
 [BigQuery Agent Analytics — Template](https://lookerstudio.google.com/reporting/5a3f85ef-fc9c-4730-8ef2-8ef9129ddb40).
 
-All seven dashboard pages default to a rolling 365-day window including
-today. The Trace Inspector intentionally has no default date control.
+All eight report pages share one report-level date control. It defaults to a
+rolling 90-day window including today; changing the range on any page persists
+across navigation, including the Trace Inspector.
 
 The v1 report is a freeform desktop dashboard. Use a viewport at least 1280
 CSS pixels wide (1440 recommended). A cold load or page navigation can paint
@@ -100,8 +101,10 @@ native charts after the surrounding report controls; allow up to 90 seconds
 for non-degenerate chart output. Phone and narrow-tablet layouts require a
 separate responsive template and are not supported by v1. See
 [`docs/rendering-and-viewport-support.md`](docs/rendering-and-viewport-support.md).
-The latest live pass used a 1568-pixel viewport, so targeted validation at the
-documented 1280-pixel minimum is still pending.
+The 2026-08-11 live pass validated every page at the documented 1280-pixel
+minimum with the Looker Studio navigation drawer collapsed. At that width the
+expanded drawer is viewer chrome that overlays the report canvas; collapse it
+to keep the full left edge visible.
 Issue
 [#388](https://github.com/GoogleCloudPlatform/BigQuery-Agent-Analytics-SDK/issues/388)
 also found that lower charts on Token Consumption and Latency crossed the
@@ -219,7 +222,7 @@ window, event volume, and number of chart interactions.
   dashboard's `@DS_START_DATE` / `@DS_END_DATE` predicate. Do not wrap the
   partition column in a transformation that prevents pruning.
 - Use the shortest date range that answers the operational question. The
-  365-day default is an onboarding view, not a recommendation for every
+  90-day default is an onboarding view, not a recommendation for every
   high-volume installation.
 - Set BigQuery partition expiration to the retention period your incident and
   compliance policies actually require.
