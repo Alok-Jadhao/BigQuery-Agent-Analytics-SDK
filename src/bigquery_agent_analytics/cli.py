@@ -619,7 +619,7 @@ def _format_feedback_snippet(
   if len(collapsed) <= max_chars:
     snippet = collapsed
   else:
-  # Reserve one char for the ellipsis to keep the visual width capped.
+    # Reserve one char for the ellipsis to keep the visual width capped.
     snippet = collapsed[: max_chars - 1].rstrip() + "\u2026"
 
   return snippet.replace("\\", "\\\\").replace('"', '\\"')

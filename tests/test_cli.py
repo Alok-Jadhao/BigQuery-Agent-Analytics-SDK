@@ -1018,6 +1018,7 @@ class TestFormatFeedbackSnippet:
     )
     assert out == 'The agent added \\"(Design)\\" and used path\\\\to\\\\file.'
 
+
 # ------------------------------------------------------------------ #
 # env var fallback                                                     #
 # ------------------------------------------------------------------ #
